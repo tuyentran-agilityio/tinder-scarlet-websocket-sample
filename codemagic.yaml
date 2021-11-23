@@ -1,0 +1,85 @@
+
+
+workflows:
+    native-android:
+        name: Native Android
+        instance_type: mac_pro
+        environment:
+            groups:
+            # Add the group environment variables in Codemagic UI (either in Application/Team variables) - https://docs.codemagic.io/variables/environment-variable-groups/
+                - keystore_credentials # <-- (Includes CM_KEYSTORE, CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS_PASSWORD, CM_KEY_ALIAS_USERNAME)
+                  # CM_KEYSTORE <-- Put your keystore file here
+                  # CM_KEYSTORE_PASSWORD <-- Put your keystore password here
+                  # CM_KEY_ALIAS_PASSWORD <-- Put your keystore alias password here
+                  # CM_KEY_ALIAS_USERNAME <-- Put your keystore alias username here
+                - google_play # <-- (Includes GCLOUD_SERVICE_ACCOUNT_CREDENTIALS)
+                - other
+            vars:
+                # Set up paths to application binary and test package 
+                AWS_APK_PATH: "$FCI_BUILD_DIR/app/build/outputs/apk/debug/app-debug.apk"
+                AWS_TEST_APK_PATH: "$FCI_BUILD_DIR/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+                # Specify application and test types
+                AWS_APP_TYPE: "ANDROID_APP" # Type of the main app that is being tested. See more about `--type` flag at https://docs.aws.amazon.com/cli/latest/reference/devicefarm/create-upload.html
+                AWS_TEST_PACKAGE_TYPE: "INSTRUMENTATION_TEST_PACKAGE" # Type of the test package that is being uploaded. See more about `--type` flag at https://docs.aws.amazon.com/cli/latest/reference/devicefarm/create-upload.html
+                AWS_TEST_TYPE: "INSTRUMENTATION" # See more about `--test` flag `type` option at https://docs.aws.amazon.com/cli/latest/reference/devicefarm/schedule-run.html  
+            node: latest
+            xcode: 12.2
+        triggering:
+            events:
+                - push
+                - tag
+                - pull_request
+            branch_patterns:
+                - pattern: develop
+                  include: true
+                  source: true
+        scripts:
+            - name: Set Android SDK location
+              script: |
+                echo "sdk.dir=$ANDROID_SDK_ROOT" > "$FCI_BUILD_DIR/local.properties"
+            - name: Set up keystore
+              script: |
+                    echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.keystore
+                    cat >> "$FCI_BUILD_DIR/key.properties" <<EOF
+                    storePassword=$CM_KEYSTORE_PASSWORD
+                    keyPassword=$CM_KEY_ALIAS_PASSWORD
+                    keyAlias=$CM_KEY_ALIAS_USERNAME
+                    storeFile=/tmp/keystore.keystore
+                    EOF
+            - name: Build Android debug APK
+              script: |
+                ./gradlew assembleDebug
+            - name: Build Android test APK
+              script: |
+                ./gradlew assembleAndroidTest
+            # - name: Run AWS Device Farm test
+            #   script: |
+            #     cd .scripts && ./run_aws_espresso.sh
+            # - name: Verify Device Farm test
+            #   script: |
+            #     set -e
+            #     set -x
+            #     export AWS_RESULT=$(cat $FCI_BUILD_DIR/.scripts/test-result.json | jq -r '.run.result')
+            #     if [ $AWS_RESULT != "PASSED" ] 
+            #     then
+            #       echo "AWS tests did not pass, the result was $AWS_RESULT"
+            #       exit 1
+            #     else 
+            #       echo "AWS tests PASSED!"
+            #     fi
+            - name: Build Android production release
+              script: |
+                ./gradlew assembleRelease    
+        artifacts:
+            - app/build/outputs/**/*.apk
+        publishing:
+            email:
+                recipients:
+                    - user1@example.com
+                    - user2@example.com
+                notify:
+                  success: true
+                  failure: false   
+            google_play:                          # For publishing your Android app to Google Play
+                credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+                track: alpha                      # Name of the track: internal, alpha, beta, production
