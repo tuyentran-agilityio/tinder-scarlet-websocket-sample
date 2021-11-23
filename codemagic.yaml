@@ -72,14 +72,14 @@ workflows:
                 ./gradlew assembleRelease    
         artifacts:
             - app/build/outputs/**/*.apk
-        publishing:
-            email:
-                recipients:
-                    - user1@example.com
-                    - user2@example.com
-                notify:
-                  success: true
-                  failure: false   
-            google_play:                          # For publishing your Android app to Google Play
-                credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-                track: alpha                      # Name of the track: internal, alpha, beta, production
+        # publishing:
+        #     email:
+        #         recipients:
+        #             - user1@example.com
+        #             - user2@example.com
+        #         notify:
+        #           success: true
+        #           failure: false   
+        #     google_play:                          # For publishing your Android app to Google Play
+        #         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        #         track: alpha                      # Name of the track: internal, alpha, beta, production
